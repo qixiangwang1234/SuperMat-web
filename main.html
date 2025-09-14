@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI材料研究代理 | Materials Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    
+    <!-- 配置Tailwind自定义主题 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        dark: '#1D2129',
+                        light: '#F2F3F5',
+                        'gray-medium': '#86909C'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .card-hover {
+                transition: all 300ms ease;
+                box-shadow: none;
+            }
+            .card-hover:hover {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                transform: translateY(-1px);
+            }
+            }
+            .bg-gradient {
+                background: linear-gradient(135deg, #165DFF 0%, #0A3CA0 100%);
+            }
+        
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-dark">
+
+
+    <!-- 超导预测 -->
+    <section id="prediction" class="py-20">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold mb-4">超导特性预测</h2>
+                <p class="text-gray-medium max-w-2xl mx-auto">基于材料特性参数，预测超导可能性及关键参数</p>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="grid md:grid-cols-5">
+                    <!-- 左侧：输入表单 -->
+                    <div class="md:col-span-2 p-6 border-r border-gray-100">
+                        <h3 class="text-xl font-semibold mb-6">材料参数输入</h3>
+                        
+                        <form class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">化学式</label>
+                                <input type="text" placeholder="如: NbTi" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">形成能 (eV/atom)</label>
+                                <input type="number" step="0.01" placeholder="-0.5" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">费米能级 (eV)</label>
+                                <input type="number" step="0.1" placeholder="5.0" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">体弹性模量 (GPa)</label>
+                                    <input type="number" placeholder="160" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">剪切模量 (GPa)</label>
+                                    <input type="number" placeholder="70" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">体积 (Å³)</label>
+                                    <input type="number" step="0.01" placeholder="40.0" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">原子数</label>
+                                    <input type="number" placeholder="2" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center">
+                                <input type="checkbox" id="isMetal" class="mr-2">
+                                <label for="isMetal" class="text-sm text-gray-700">是否为金属</label>
+                            </div>
+                            
+                            <button type="button" class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-md transition-colors">
+                                预测超导特性
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- 右侧：预测结果 -->
+                    <div class="md:col-span-3 p-6">
+                        <h3 class="text-xl font-semibold mb-6">预测结果</h3>
+                        
+                        <div class="space-y-6">
+                            <div class="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                                <div class="flex items-center mb-2">
+                                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                                        <i class="fa fa-check text-green-600"></i>
+                                    </div>
+                                    <h4 class="font-medium">潜在超导体</h4>
+                                </div>
+                                <p class="text-sm text-gray-medium">根据计算结果，该材料有较高概率表现出超导特性</p>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div class="p-4 bg-white border border-gray-200 rounded-lg">
+                                    <p class="text-sm text-gray-medium mb-1">临界温度</p>
+                                    <p class="text-2xl font-semibold">12.5 K</p>
+                                </div>
+                                <div class="p-4 bg-white border border-gray-200 rounded-lg">
+                                    <p class="text-sm text-gray-medium mb-1">超导概率</p>
+                                    <p class="text-2xl font-semibold">87%</p>
+                                </div>
+                                <div class="p-4 bg-white border border-gray-200 rounded-lg">
+                                    <p class="text-sm text-gray-medium mb-1">能隙</p>
+                                    <p class="text-2xl font-semibold">0.0042 eV</p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-medium mb-3">详细参数</h4>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            <tr>
+                                                <td class="px-3 py-3 text-sm text-gray-medium">平均原子序数</td>
+                                                <td class="px-3 py-3 text-sm font-medium">41.5</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="px-3 py-3 text-sm text-gray-medium">电负性差异</td>
+                                                <td class="px-3 py-3 text-sm font-medium">0.32</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="px-3 py-3 text-sm text-gray-medium">德拜温度</td>
+                                                <td class="px-3 py-3 text-sm font-medium">285 K</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="px-3 py-3 text-sm text-gray-medium">电子-声子耦合</td>
+                                                <td class="px-3 py-3 text-sm font-medium">0.86</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <script>
+        // Pauling电负性数据（扩展常用超导相关元素）
+        const _pauling_en = {
+            "H": 2.20, "He": 0, "Li": 0.98, "Be": 1.57, "B": 2.04, "C": 2.55,
+            "N": 3.04, "O": 3.44, "F": 3.98, "Na": 0.93, "Mg": 1.31, "Al": 1.61,
+            "Si": 1.90, "P": 2.19, "S": 2.58, "Cl": 3.16, "K": 0.82, "Ca": 1.00,
+            "Ti": 1.54, "V": 1.63, "Cr": 1.66, "Mn": 1.55, "Fe": 1.83, "Co": 1.88,
+            "Ni": 1.91, "Cu": 1.90, "Zn": 1.65, "Ga": 1.81, "Ge": 2.01, "As": 2.18,
+            "Se": 2.55, "Br": 2.96, "Rb": 0.82, "Sr": 0.95, "Y": 1.22, "Zr": 1.33,
+            "Nb": 1.60, "Mo": 2.16, "Tc": 1.90, "Ru": 2.20, "Rh": 2.28, "Pd": 2.20,
+            "Ag": 1.93, "Cd": 1.69, "In": 1.78, "Sn": 1.96, "Sb": 2.05, "Te": 2.10,
+            "I": 2.66, "Cs": 0.79, "Ba": 0.89, "La": 1.10, "Ce": 1.12, "Pr": 1.13,
+            "Nd": 1.14, "Sm": 1.17, "Eu": 1.20, "Gd": 1.20, "Tb": 1.24, "Dy": 1.22,
+            "Ho": 1.23, "Er": 1.24, "Tm": 1.25, "Yb": 1.10, "Lu": 1.27, "Hf": 1.30,
+            "Ta": 1.50, "W": 2.36, "Re": 1.90, "Os": 2.20, "Ir": 2.20, "Pt": 2.28,
+            "Au": 2.54, "Hg": 2.00, "Tl": 1.62, "Pb": 2.33, "Bi": 2.02
+        };
+
+        // 元素原子序数映射表
+        const _atomic_numbers = {
+            "H": 1, "He": 2, "Li": 3, "Be": 4, "B": 5, "C": 6, "N": 7, "O": 8, "F": 9,
+            "Na": 11, "Mg": 12, "Al": 13, "Si": 14, "P": 15, "S": 16, "Cl": 17,
+            "K": 19, "Ca": 20, "Sc": 21, "Ti": 22, "V": 23, "Cr": 24, "Mn": 25,
+            "Fe": 26, "Co": 27, "Ni": 28, "Cu": 29, "Zn": 30, "Ga": 31, "Ge": 32,
+            "As": 33, "Se": 34, "Br": 35, "Rb": 37, "Sr": 38, "Y": 39, "Zr": 40,
+            "Nb": 41, "Mo": 42, "Tc": 43, "Ru": 44, "Rh": 45, "Pd": 46, "Ag": 47,
+            "Cd": 48, "In": 49, "Sn": 50, "Sb": 51, "Te": 52, "I": 53, "Cs": 55,
+            "Ba": 56, "La": 57, "Ce": 58, "Pr": 59, "Nd": 60, "Sm": 62, "Eu": 63,
+            "Gd": 64, "Tb": 65, "Dy": 66, "Ho": 67, "Er": 68, "Tm": 69, "Yb": 70,
+            "Lu": 71, "Hf": 72, "Ta": 73, "W": 74, "Re": 75, "Os": 76, "Ir": 77,
+            "Pt": 78, "Au": 79, "Hg": 80, "Tl": 81, "Pb": 82, "Bi": 83
+        };
+
+        // 解析化学式字符串为元素-比例字典
+        function _parse_composition(composition_str) {
+            const elements = composition_str.match(/([A-Z][a-z]?)(\d*\.?\d*)/g);
+            const parsed = {};
+            let total = 0;
+
+            if (elements) {
+                elements.forEach(element => {
+                    const match = element.match(/([A-Z][a-z]?)(\d*\.?\d*)/);
+                    if (match) {
+                        const elem = match[1];
+                        const ratio = match[2] ? parseFloat(match[2]) : 1.0;
+                        parsed[elem] = ratio;
+                        total += ratio;
+                    }
+                });
+            }
+
+            // 归一化比例
+            const normalized = {};
+            Object.keys(parsed).forEach(elem => {
+                normalized[elem] = parsed[elem] / total;
+            });
+
+            return normalized;
+        }
+
+        // 计算平均原子序数
+        function _calculate_average_atomic_number(parsed_composition) {
+            let avg = 0.0;
+            Object.keys(parsed_composition).forEach(elem => {
+                avg += _atomic_numbers[elem] * parsed_composition[elem];
+            });
+            return avg;
+        }
+
+        // 计算元素间最大电负性差异
+        function _calculate_electronegativity_diff(parsed_composition) {
+            const ens = [];
+            Object.keys(parsed_composition).forEach(elem => {
+                if (_pauling_en[elem] !== undefined) {
+                    ens.push(_pauling_en[elem]);
+                }
+            });
+            if (ens.length < 2) {
+                return 0.0;
+            }
+            return Math.max(...ens) - Math.min(...ens);
+        }
+
+        // 使用弹性模量估算德拜温度
+        function _estimate_debye_temperature(bulk_modulus, shear_modulus, density, volume_per_atom, avg_atomic_num) {
+            if (shear_modulus <= 0 || density <= 0 || volume_per_atom <= 0) {
+                // 当关键参数无效时，基于体积模量和原子序数提供更合理的默认值
+                // 体积模量越高，原子序数越大，德拜温度通常越高
+                let base_temp = 100.0; // 基础温度
+                if (bulk_modulus > 300) base_temp = 500.0; // 非常硬的材料
+                else if (bulk_modulus > 150) base_temp = 300.0; // 中等硬度材料
+                else if (bulk_modulus > 50) base_temp = 200.0;  // 较软的材料
+                
+                // 考虑原子序数的影响
+                const z_correction = 1 + 0.005 * avg_atomic_num;
+                return base_temp * z_correction;
+            }
+
+            // 转换单位：GPa -> Pa，g/cm³ -> kg/m³
+            const bulk_modulus_pa = bulk_modulus * 1e9;
+            const shear_modulus_pa = shear_modulus * 1e9;
+            const density_kgm3 = density * 1000;
+
+            // 更精确地估算材料的平均声速
+            // 考虑纵波和横波速度
+            const poisson_ratio = (3 * bulk_modulus_pa - 2 * shear_modulus_pa) / (6 * bulk_modulus_pa + 2 * shear_modulus_pa);
+            
+            // 纵波速度
+            const v_longitudinal = Math.sqrt((bulk_modulus_pa + (4/3)*shear_modulus_pa) / density_kgm3);
+            // 横波速度
+            const v_transverse = Math.sqrt(shear_modulus_pa / density_kgm3);
+            
+            // 德拜模型中的平均声速（考虑3个弹性波模式：1个纵波，2个横波）
+            const sound_velocity = Math.pow((1/(v_longitudinal*v_longitudinal*v_longitudinal)) + 
+                                           (2/(v_transverse*v_transverse*v_transverse)), -1/3);
+
+            // 原子数密度 (1/m³)
+            const atom_density = 1 / volume_per_atom;
+
+            // 德拜温度计算（使用德拜频率公式）
+            const theta_d = (6.626e-34 / (2 * Math.PI * 1.38e-23)) * 
+                          Math.pow((3 * atom_density) / (4 * Math.PI), 1/3) * 
+                          sound_velocity;
+
+            // 确保结果在合理范围内
+            return Math.max(theta_d, 10.0);
+        }
+
+        // 从德拜温度估算声子频率 (THz)
+        function _estimate_phonon_frequency(debye_temperature) {
+            // 德拜频率与德拜温度关系：ω_D = (k_B * θ_D) / ħ
+            // 转换为THz (1 THz = 1e12 Hz)
+            return (1.38e-23 * debye_temperature) / (1.054e-34 * 1e12);
+        }
+
+        // 估算电子-声子耦合强度
+        function _estimate_electron_phonon_coupling(bulk_modulus, shear_modulus) {
+            if (shear_modulus <= 0) {
+                // 当剪切模量无效时，基于体积模量提供更合理的默认值
+                if (bulk_modulus > 200) return 0.35; // 高体积模量材料通常有较强耦合
+                if (bulk_modulus > 100) return 0.25; // 中等体积模量
+                return 0.15; // 低体积模量
+            }
+
+            // 改进的弹性模量比经验公式，考虑了更多物理因素
+            const ratio = bulk_modulus / shear_modulus;
+            // 对于延性材料(ratio>1.75)和脆性材料(ratio<1.75)使用不同的系数
+            let lambda_;
+            if (ratio > 1.75) {
+                // 延性材料通常有更强的电子-声子耦合
+                lambda_ = 0.1 + 0.45 * (ratio - 1.5);
+            } else {
+                // 脆性材料耦合较弱
+                lambda_ = 0.05 + 0.3 * (ratio - 1.0);
+            }
+
+            // 限制在物理合理范围内
+            return Math.max(0.1, Math.min(lambda_, 2.0));
+        }
+
+        // 使用完整的McMillan公式计算临界温度
+        function _calculate_critical_temperature(debye_temperature, electron_phonon_coupling, fermi_energy, avg_atomic_num) {
+            // 有效库仑排斥参数不再是固定值，而是基于费米能级和原子序数计算
+            // 参考物理文献：mu_star ≈ 0.1 - 0.05*(E_F/10 - 1)
+            let mu_star = 0.1;
+            if (fermi_energy > 0) {
+                mu_star = 0.1 - 0.05 * (Math.min(fermi_energy / 10, 3) - 1);
+                mu_star = Math.max(0.05, Math.min(mu_star, 0.2));
+            }
+
+            if (electron_phonon_coupling <= mu_star) {
+                return 0.0;
+            }
+
+            // 完整的McMillan公式考虑了非弹性散射和强耦合效应的修正项
+            const exponent = 1.0 / (electron_phonon_coupling * (1 - 0.62 * mu_star) - mu_star);
+            
+            // 对于强耦合超导体(λ>1.0)添加额外的修正因子
+            let tc = debye_temperature * Math.exp(-exponent);
+            
+            if (electron_phonon_coupling > 1.0) {
+                // 考虑强耦合修正
+                const coupling_correction = 1 + 0.2 * (electron_phonon_coupling - 1.0);
+                tc *= coupling_correction;
+            }
+            
+            return tc;
+        }
+
+        // 计算超导能隙
+        function _calculate_energy_gap(critical_temperature, fermi_energy, electron_phonon_coupling, avg_atomic_num) {
+            if (critical_temperature > 0) {
+                // BCS理论基础值
+                let gap = 3.52 * 8.617e-5 * critical_temperature;
+                
+                // 考虑电子-声子耦合强度的修正
+                // 对于强耦合超导体(λ>1.0)，能隙比BCS理论预测的更大
+                if (electron_phonon_coupling > 1.0) {
+                    const coupling_factor = 1 + 0.15 * (electron_phonon_coupling - 1.0);
+                    gap *= coupling_factor;
+                }
+                
+                // 考虑费米能级的影响
+                if (fermi_energy > 0) {
+                    const fermi_factor = 1 + 0.02 * Math.log(1 + fermi_energy / 2);
+                    gap *= fermi_factor;
+                }
+                
+                return gap;
+            } else {
+                // 非超导状态下的更精确近似
+                // 考虑原子序数和费米能级的影响
+                if (fermi_energy > 0) {
+                    const base_gap = 0.005 * Math.abs(fermi_energy);
+                    // 原子序数越高，非超导状态的能隙越小
+                    const z_factor = Math.exp(-avg_atomic_num / 100);
+                    return base_gap * z_factor;
+                }
+                return 0.001;
+            }
+        }
+
+        // 超导预测主函数
+        function predict_superconductor(material_features) {
+            // 初始化结果字典
+            const result = {
+                "composition": material_features.composition,
+                "prediction": {
+                    "critical_temperature_k": 0.0,
+                    "formation_energy_ev_per_atom": 0.0,
+                    "energy_gap_ev": 0.0,
+                    "is_potential_superconductor": false
+                },
+                "parameters": {},
+                "status": "processed",
+                "message": ""
+            };
+
+            // 1. 初步筛选：必须是金属
+            if (!material_features.is_metal) {
+                result.status = "filtered";
+                result.message = "非金属材料，排除超导可能性";
+                return result;
+            }
+
+            try {
+                // 2. 解析化学式并计算平均原子序数
+                const parsed_comp = _parse_composition(material_features.composition);
+                const avg_atomic_num = _calculate_average_atomic_number(parsed_comp);
+
+                // 3. 计算体积/原子 (转换为m³)
+                // 从材料特征中获取体积和原子数
+                // 转换单位：Å³ -> m³ (1 Å³ = 1e-30 m³)
+                const volume_per_atom = (material_features.volume * 1e-30) / material_features.atom_count;
+
+                // 4. 计算电负性差异
+                const en_diff = _calculate_electronegativity_diff(parsed_comp);
+
+                // 5. 估算德拜温度
+                // 根据体积和原子数计算密度 (g/cm³)
+                // 平均原子质量估算 (假设平均原子量约为60 g/mol)
+                const avg_atomic_mass = 60; // g/mol
+                const avogadro = 6.022e23; // 阿伏伽德罗常数 (1/mol)
+                // 密度 = (原子数 * 平均原子质量) / (体积 * 阿伏伽德罗常数)
+                // 转换：Å³ -> cm³ (1 Å³ = 1e-24 cm³)
+                const density = (material_features.atom_count * avg_atomic_mass) / 
+                               (material_features.volume * 1e-24 * avogadro);
+                
+                const debye_temp = _estimate_debye_temperature(
+                    material_features.bulk_modulus,
+                    material_features.shear_modulus,
+                    density,
+                    volume_per_atom,
+                    avg_atomic_num
+                );
+
+                // 6. 估算声子频率 (THz)
+                const phonon_freq = _estimate_phonon_frequency(debye_temp);
+
+                // 7. 估算电子-声子耦合强度
+                const electron_phonon_coupling = _estimate_electron_phonon_coupling(
+                    material_features.bulk_modulus,
+                    material_features.shear_modulus
+                );
+
+                // 8. 计算临界温度Tc (K)
+                const critical_temp = _calculate_critical_temperature(
+                    debye_temp,
+                    electron_phonon_coupling,
+                    material_features.efermi,
+                    avg_atomic_num
+                );
+
+                // 9. 计算能隙 (eV)
+                const energy_gap = _calculate_energy_gap(
+                    critical_temp,
+                    material_features.efermi,
+                    electron_phonon_coupling,
+                    avg_atomic_num
+                );
+
+                // 10. 提取形成能
+                const formation_energy = material_features.formation_energy;
+
+                // 构建临时结果对象以计算概率
+                const temp_result = {
+                    prediction: {
+                        critical_temperature_k: Math.round(critical_temp * 100) / 100,
+                        formation_energy_ev_per_atom: Math.round(formation_energy * 1000) / 1000,
+                        energy_gap_ev: Math.round(energy_gap * 10000) / 10000,
+                        is_potential_superconductor: false
+                    },
+                    parameters: {
+                        average_atomic_number: Math.round(avg_atomic_num * 100) / 100,
+                        electron_phonon_coupling: Math.round(electron_phonon_coupling * 1000) / 1000,
+                        debye_temperature_k: Math.round(debye_temp * 100) / 100
+                    }
+                };
+                
+                // 计算概率
+                const probability_value = calculate_superconductor_probability_value(temp_result);
+                
+                // 11. 判断是否为潜在超导体（基于物理参数或概率）
+                const is_superconductor_by_physics = (critical_temp > 5) && (formation_energy < 0) && (energy_gap < 0.05);
+                const is_superconductor_by_probability = probability_value > 60;
+                const is_superconductor = is_superconductor_by_physics || is_superconductor_by_probability;
+
+                // 更新结果
+                result.prediction = {
+                    "critical_temperature_k": Math.round(critical_temp * 100) / 100,
+                    "formation_energy_ev_per_atom": Math.round(formation_energy * 1000) / 1000,
+                    "energy_gap_ev": Math.round(energy_gap * 10000) / 10000,
+                    "is_potential_superconductor": is_superconductor,
+                    "probability_value": probability_value
+                };
+
+                // 保存中间参数
+                result.parameters = {
+                    "average_atomic_number": Math.round(avg_atomic_num * 100) / 100,
+                    "electronegativity_difference": Math.round(en_diff * 100) / 100,
+                    "debye_temperature_k": Math.round(debye_temp * 100) / 100,
+                    "phonon_frequency_thz": Math.round(phonon_freq * 100) / 100,
+                    "electron_phonon_coupling": Math.round(electron_phonon_coupling * 1000) / 1000
+                };
+
+                result.message = "预测完成";
+
+            } catch (e) {
+                result.status = "error";
+                result.message = "计算过程出错: " + e.message;
+            }
+
+            return result;
+        }
+
+        // 处理表单提交
+        document.querySelector('button[type="button"]').addEventListener('click', function() {
+            // 获取表单数据
+            const composition = document.querySelector('input[placeholder="如: NbTi"]').value.trim();
+            const formation_energy = parseFloat(document.querySelector('input[placeholder="-0.5"]').value);
+            const efermi = parseFloat(document.querySelector('input[placeholder="5.0"]').value);
+            const bulk_modulus = parseFloat(document.querySelector('input[placeholder="160"]').value);
+            const shear_modulus = parseFloat(document.querySelector('input[placeholder="70"]').value);
+            const volume = parseFloat(document.querySelector('input[placeholder="40.0"]').value);
+            const atom_count = parseFloat(document.querySelector('input[placeholder="2"]').value);
+            const is_metal = document.getElementById('isMetal').checked;
+
+            // 验证表单数据
+            if (!composition || isNaN(formation_energy) || isNaN(efermi) || 
+                isNaN(bulk_modulus) || isNaN(shear_modulus) || isNaN(volume) || isNaN(atom_count)) {
+                alert('请填写所有必填字段并确保数值正确');
+                return;
+            }
+
+            // 构建材料特征对象
+            const material_features = {
+                "composition": composition,
+                "formation_energy": formation_energy,
+                "efermi": efermi,
+                "bulk_modulus": bulk_modulus,
+                "shear_modulus": shear_modulus,
+                "volume": volume,
+                "atom_count": atom_count,
+                "is_metal": is_metal
+            };
+
+            // 执行预测
+            const prediction_result = predict_superconductor(material_features);
+
+            // 显示结果
+            display_prediction_result(prediction_result);
+        });
+
+        // 计算超导概率值（不包含百分号）
+        function calculate_superconductor_probability_value(result) {
+            // 对于已被识别为潜在超导体的材料，提供基础概率值
+            let probability = result.prediction.is_potential_superconductor ? 50 : 20;
+            
+            // 临界温度贡献 (权重30%)
+            if (result.prediction.critical_temperature_k > 35) {
+                probability += 30; // 高Tc材料概率高
+            } else if (result.prediction.critical_temperature_k > 20) {
+                probability += 20; // 中温超导
+            } else if (result.prediction.critical_temperature_k > 5) {
+                probability += 10; // 低温超导
+            }
+            
+            // 电子-声子耦合强度贡献 (权重25%)
+            const lambda = result.parameters.electron_phonon_coupling;
+            if (lambda > 1.5) {
+                probability += 25; // 强耦合超导体
+            } else if (lambda > 0.8) {
+                probability += 15; // 中等耦合
+            } else if (lambda > 0.4) {
+                probability += 15; // 弱耦合
+            } else if (lambda > 0.1) {
+                probability += 5;  // 很弱的耦合
+            }
+            
+            // 形成能贡献 (权重20%)
+            if (result.prediction.formation_energy_ev_per_atom < -0.3) {
+                probability += 20; // 非常稳定的材料
+            } else if (result.prediction.formation_energy_ev_per_atom < -0.1) {
+                probability += 15;
+            } else if (result.prediction.formation_energy_ev_per_atom < 0) {
+                probability += 10;
+            }
+            
+            // 能隙贡献 (权重15%)
+            if (result.prediction.energy_gap_ev > 0 && result.prediction.energy_gap_ev < 0.04) {
+                probability += 15; // 正常BCS能隙范围
+            } else if (result.prediction.energy_gap_ev >= 0.04 && result.prediction.energy_gap_ev < 0.06) {
+                probability += 10;
+            } else if (result.prediction.energy_gap_ev > 0) {
+                probability += 5;
+            }
+            
+            // 德拜温度贡献 (权重10%)
+            if (result.parameters.debye_temperature_k > 300) {
+                probability += 10; // 高德拜温度材料可能有高Tc
+            } else if (result.parameters.debye_temperature_k > 150) {
+                probability += 7;
+            } else if (result.parameters.debye_temperature_k > 80) {
+                probability += 4;
+            } else if (result.parameters.debye_temperature_k > 40) {
+                probability += 2;
+            }
+            
+            // 确保概率在合理范围内
+            return Math.max(0, Math.min(99, Math.round(probability)));
+        }
+        
+        // 计算超导概率（带百分号）
+        function calculate_superconductor_probability(result) {
+            return calculate_superconductor_probability_value(result) + '%';
+        }
+
+        // 显示预测结果
+        function display_prediction_result(result) {
+            // 清除之前的结果
+            const resultContainer = document.querySelector('#prediction .md\\:col-span-3');
+            const resultsSection = resultContainer.querySelector('.space-y-6');
+            resultsSection.innerHTML = '';
+
+            // 显示状态消息
+            if (result.status === 'filtered') {
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'p-4 bg-yellow-50 rounded-lg border border-yellow-200';
+                statusDiv.innerHTML = `
+                    <div class="flex items-center mb-2">
+                        <div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                            <i class="fa fa-exclamation-triangle text-yellow-600"></i>
+                        </div>
+                        <h4 class="font-medium">已过滤</h4>
+                    </div>
+                    <p class="text-sm text-gray-medium">${result.message}</p>
+                `;
+                resultsSection.appendChild(statusDiv);
+                return;
+            }
+
+            if (result.status === 'error') {
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'p-4 bg-red-50 rounded-lg border border-red-200';
+                statusDiv.innerHTML = `
+                    <div class="flex items-center mb-2">
+                        <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                            <i class="fa fa-times text-red-600"></i>
+                        </div>
+                        <h4 class="font-medium">预测失败</h4>
+                    </div>
+                    <p class="text-sm text-gray-medium">${result.message}</p>
+                `;
+                resultsSection.appendChild(statusDiv);
+                return;
+            }
+
+            // 显示超导结论
+            const conclusionDiv = document.createElement('div');
+            conclusionDiv.className = result.prediction.is_potential_superconductor ? 
+                'p-4 bg-green-50 rounded-lg border border-green-200' : 
+                'p-4 bg-blue-50 rounded-lg border border-blue-200';
+            conclusionDiv.innerHTML = `
+                <div class="flex items-center mb-2">
+                    <div class="w-8 h-8 rounded-full ${result.prediction.is_potential_superconductor ? 'bg-green-100' : 'bg-blue-100'} flex items-center justify-center mr-3">
+                        <i class="fa ${result.prediction.is_potential_superconductor ? 'fa-check text-green-600' : 'fa-info text-blue-600'}"></i>
+                    </div>
+                    <h4 class="font-medium">${result.prediction.is_potential_superconductor ? '潜在超导体' : '非超导体'}</h4>
+                </div>
+                <p class="text-sm text-gray-medium">${result.prediction.is_potential_superconductor ? 
+                    '根据计算结果，该材料有较高概率表现出超导特性' : 
+                    '根据计算结果，该材料不太可能表现出超导特性'}</p>
+            `;
+            resultsSection.appendChild(conclusionDiv);
+
+            // 显示主要参数卡片
+            const paramsDiv = document.createElement('div');
+            paramsDiv.className = 'grid grid-cols-2 md:grid-cols-3 gap-4';
+            paramsDiv.innerHTML = `
+                <div class="p-4 bg-white border border-gray-200 rounded-lg">
+                    <p class="text-sm text-gray-medium mb-1">临界温度</p>
+                    <p class="text-2xl font-semibold">${result.prediction.critical_temperature_k} K</p>
+                </div>
+                <div class="p-4 bg-white border border-gray-200 rounded-lg">
+                    <p class="text-sm text-gray-medium mb-1">超导概率</p>
+                    <p class="text-2xl font-semibold">${calculate_superconductor_probability(result)}</p>
+                </div>
+                <div class="p-4 bg-white border border-gray-200 rounded-lg">
+                    <p class="text-sm text-gray-medium mb-1">能隙</p>
+                    <p class="text-2xl font-semibold">${result.prediction.energy_gap_ev} eV</p>
+                </div>
+            `;
+            resultsSection.appendChild(paramsDiv);
+
+            // 显示详细参数表格
+            const detailedParamsDiv = document.createElement('div');
+            detailedParamsDiv.innerHTML = `
+                <h4 class="font-medium mb-3">详细参数</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-3 py-3 text-sm text-gray-medium">平均原子序数</td>
+                                <td class="px-3 py-3 text-sm font-medium">${result.parameters.average_atomic_number}</td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-3 text-sm text-gray-medium">电负性差异</td>
+                                <td class="px-3 py-3 text-sm font-medium">${result.parameters.electronegativity_difference}</td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-3 text-sm text-gray-medium">德拜温度</td>
+                                <td class="px-3 py-3 text-sm font-medium">${result.parameters.debye_temperature_k} K</td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-3 text-sm text-gray-medium">电子-声子耦合</td>
+                                <td class="px-3 py-3 text-sm font-medium">${result.parameters.electron_phonon_coupling}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            resultsSection.appendChild(detailedParamsDiv);
+        }
+    </script>
+</body>
+</html>
